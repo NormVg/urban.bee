@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import type { ComplaintStatus } from '#shared/triage/taxonomy'
+
 definePageMeta({ layout: 'dashboard', fullBleed: true })
 
 const route = useRoute()
 const router = useRouter()
 const { activeDepartment } = useDepartmentScope()
-const { complaints, pending, error, refresh, statusId, severities, search, reviewOnly } = useComplaints()
+const { complaints, pending, initialLoading, error, refresh, patchLocal, statusId, severities, search, reviewOnly } =
+  useComplaints()
 
 /* Selected complaint lives in the URL (?id=) so a view can be shared. */
 const selectedId = computed<string | null>({
@@ -15,8 +18,15 @@ const hoveredId = ref<string | null>(null)
 
 const { complaint, pending: detailPending, updating, setStatus } = useComplaint(selectedId)
 
-async function onChangeStatus(status: Parameters<typeof setStatus>[0], message: string) {
-  if (await setStatus(status, message)) refresh()
+/* The list row changes at the same moment as the drawer; the refetch happens quietly after the save. */
+async function onChangeStatus(status: ComplaintStatus, message: string) {
+  if (!selectedId.value) return
+  const id = selectedId.value
+  const before = complaints.value.find((c) => c.id === id)?.status
+  patchLocal(id, { status })
+  const saved = await setStatus(status, message)
+  if (!saved && before) patchLocal(id, { status: before })
+  else void refresh()
 }
 
 /* Keep the list fresh during a live demo. */
@@ -31,43 +41,50 @@ watch(selectedId, (id) => {
 })
 
 const map = ref<{ fitAll: () => void } | null>(null)
+const title = computed(() => (activeDepartment.value ? activeDepartment.value.label : 'All problems'))
+const countLabel = computed(() => `${complaints.value.length} ${complaints.value.length === 1 ? 'problem' : 'problems'}`)
 
-useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} problems · urban.bee`) })
+useHead({ title: computed(() => `${title.value} · urban.bee`) })
 </script>
 
 <template>
   <div class="cpage">
-    <div class="cpage__bar u-rise">
-      <div class="cpage__heading">
-        <h1 class="cpage__title">{{ activeDepartment ? activeDepartment.label : 'All problems' }}</h1>
-        <p class="cpage__sub">Every report on the map, most urgent first</p>
+    <!-- Left: everything about the list in one column (header, filters, results) -->
+    <aside class="cpage__panel" aria-label="Problems">
+      <div class="cpage__panel-head u-rise">
+        <div class="cpage__heading">
+          <h1 class="cpage__title">{{ title }}</h1>
+          <p class="cpage__count tnum" aria-live="polite">
+            <UiSpinner v-if="pending && !initialLoading" :size="12" />
+            {{ initialLoading ? 'Loading…' : countLabel }} · most urgent first
+          </p>
+        </div>
+        <UiButton variant="ghost" size="sm" icon-only="refresh" aria-label="Refresh list" :loading="pending && !initialLoading" @click="refresh()" />
       </div>
+
       <ComplaintFilters
         v-model:status="statusId"
         v-model:severities="severities"
         v-model:search="search"
         v-model:review-only="reviewOnly"
-        class="cpage__filters"
-        :result-count="complaints.length"
-        :pending="pending"
+        class="cpage__filters u-rise"
+        :style="{ '--stagger': '40ms' }"
       />
-    </div>
 
-    <div class="cpage__split">
       <section class="cpage__list" aria-label="Problems list">
-        <template v-if="pending && complaints.length === 0">
+        <template v-if="initialLoading">
           <div v-for="i in 6" :key="i" class="cpage__skeleton">
-            <UiSkeleton width="72px" height="72px" radius="var(--r-sm)" />
+            <UiSkeleton width="64px" height="64px" radius="var(--r-sm)" />
             <div class="cpage__skeleton-text">
-              <UiSkeleton width="40%" />
-              <UiSkeleton width="90%" height="16px" />
-              <UiSkeleton width="60%" />
+              <UiSkeleton width="30%" height="12px" />
+              <UiSkeleton width="85%" height="15px" />
+              <UiSkeleton width="55%" height="12px" />
             </div>
           </div>
         </template>
 
         <UiEmptyState
-          v-else-if="error"
+          v-else-if="error && complaints.length === 0"
           tone="danger"
           icon="alert"
           title="We couldn't load the reports"
@@ -83,7 +100,7 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
           description="Nothing matches these filters right now."
         />
 
-        <ul v-else class="cpage__items">
+        <ul v-else class="cpage__items" :class="{ 'is-refreshing': pending }">
           <li v-for="(c, i) in complaints" :key="c.id" :data-complaint="c.id" class="u-rise" :style="{ '--stagger': `${Math.min(i, 10) * 25}ms` }">
             <ComplaintListItem
               :complaint="c"
@@ -94,29 +111,25 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
           </li>
         </ul>
       </section>
+    </aside>
 
-      <section class="cpage__map" aria-label="Map of problems">
-        <ClientOnly>
-          <ComplaintMap
-            ref="map"
-            :complaints="complaints"
-            :selected-id="selectedId"
-            :hovered-id="hoveredId"
-            @select="(id) => (selectedId = id)"
-          >
-            <div class="cpage__map-tools">
-              <UiButton variant="secondary" size="sm" icon-left="locate" @click="map?.fitAll()">Show all</UiButton>
-            </div>
-            <div class="cpage__legend" aria-hidden="true">
-              <span><i style="background: var(--danger)" />Critical</span>
-              <span><i style="background: var(--orange)" />High</span>
-              <span><i style="background: var(--warning)" />Medium</span>
-              <span><i style="background: var(--success)" />Low</span>
-            </div>
-          </ComplaintMap>
-        </ClientOnly>
-      </section>
-    </div>
+    <!-- Right: the map fills the rest of the screen -->
+    <section class="cpage__map" aria-label="Map of problems">
+      <ClientOnly>
+        <ComplaintMap
+          ref="map"
+          :complaints="complaints"
+          :selected-id="selectedId"
+          :hovered-id="hoveredId"
+          @select="(id) => (selectedId = id)"
+        >
+          <div class="cpage__map-tools">
+            <UiButton variant="secondary" size="sm" icon-left="locate" @click="map?.fitAll()">Show all</UiButton>
+          </div>
+          <ComplaintMapLegend class="cpage__legend" />
+        </ComplaintMap>
+      </ClientOnly>
+    </section>
 
     <UiDrawer :open="!!selectedId" label="Problem details" @close="selectedId = null">
       <div class="cpage__drawer-bar">
@@ -127,9 +140,11 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
       </div>
       <div class="cpage__drawer-body">
         <div v-if="detailPending" class="cpage__drawer-loading">
-          <UiSkeleton height="24px" width="60%" />
-          <UiSkeleton height="260px" radius="var(--r-md)" />
-          <UiSkeleton height="140px" radius="var(--r-md)" />
+          <UiSkeleton height="22px" width="35%" />
+          <UiSkeleton height="28px" width="80%" />
+          <UiSkeleton height="240px" radius="var(--r-md)" />
+          <UiSkeleton height="44px" radius="var(--r-sm)" />
+          <UiSkeleton height="160px" radius="var(--r-md)" />
         </div>
         <ComplaintDetailView
           v-else-if="complaint"
@@ -145,41 +160,62 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
 
 <style scoped>
 .cpage {
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - 57px);
+  display: grid;
+  grid-template-columns: 440px minmax(0, 1fr);
+  height: var(--page-h);
+  min-height: 0;
 }
 
-.cpage__bar {
+.cpage__panel {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.cpage__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 18px clamp(16px, 3vw, 28px) 14px;
-  border-bottom: 1px solid var(--line);
+  padding: 20px 20px 12px;
+}
+
+.cpage__heading {
+  min-width: 0;
 }
 
 .cpage__title {
   font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.015em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.cpage__sub {
-  font-size: 13px;
+.cpage__count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12.5px;
   color: var(--ink-3);
+  white-space: nowrap;
 }
 
-.cpage__split {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 400px 1fr;
+.cpage__filters {
+  padding: 0 20px 14px;
+  border-bottom: 1px solid var(--line);
 }
 
 .cpage__list {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 10px;
-  border-right: 1px solid var(--line);
 }
 
 .cpage__items {
@@ -189,6 +225,12 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
   display: flex;
   flex-direction: column;
   gap: 2px;
+  transition: opacity var(--t-med) var(--ease-out);
+}
+
+/* Filter change in flight: keep the old results visible but quieter instead of flashing skeletons. */
+.cpage__items.is-refreshing {
+  opacity: 0.6;
 }
 
 .cpage__skeleton {
@@ -206,6 +248,7 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
 
 .cpage__map {
   position: relative;
+  min-width: 0;
   min-height: 0;
 }
 
@@ -221,27 +264,6 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
   left: 14px;
   bottom: 14px;
   z-index: 2;
-  display: flex;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: var(--r-sm);
-  background: rgba(253, 250, 243, 0.92);
-  box-shadow: var(--sh-2);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-2);
-}
-
-.cpage__legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cpage__legend i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
 }
 
 .cpage__drawer-bar {
@@ -264,19 +286,27 @@ useHead({ title: computed(() => `${activeDepartment.value?.label ?? 'All'} probl
   gap: 16px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .cpage {
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .cpage {
+    display: flex;
+    flex-direction: column;
     height: auto;
   }
-  .cpage__split {
-    grid-template-columns: 1fr;
+  .cpage__panel {
+    border-right: none;
   }
   .cpage__map {
     order: -1;
-    height: 46vh;
+    height: 42vh;
   }
   .cpage__list {
-    border-right: none;
+    overflow: visible;
   }
   .cpage__legend {
     display: none;

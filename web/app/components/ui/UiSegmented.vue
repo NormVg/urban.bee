@@ -3,12 +3,14 @@
 defineProps<{
   options: readonly { id: T; label: string }[]
   label: string
+  /** Stretch to the container width, options sharing it equally */
+  block?: boolean
 }>()
 const model = defineModel<T>({ required: true })
 </script>
 
 <template>
-  <div class="ui-seg" role="radiogroup" :aria-label="label">
+  <div class="ui-seg" :class="{ 'ui-seg--block': block }" role="radiogroup" :aria-label="label">
     <button
       v-for="opt in options"
       :key="opt.id"
@@ -32,6 +34,16 @@ const model = defineModel<T>({ required: true })
   border-radius: var(--r-sm);
   background: var(--surface-inset);
   border: 1px solid var(--line);
+}
+
+.ui-seg--block {
+  display: flex;
+  width: 100%;
+}
+
+.ui-seg--block .ui-seg__item {
+  flex: 1;
+  padding: 0 6px;
 }
 
 .ui-seg__item {

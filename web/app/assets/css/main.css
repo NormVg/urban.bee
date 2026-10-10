@@ -77,6 +77,9 @@
 
   /* --- layout --- */
   --sidebar-w: 264px;
+  --topbar-h: 56px;               /* mobile topbar; hidden on desktop */
+  /* full-height pages (map, complaints) subtract the mobile topbar only below 1024px */
+  --page-h: calc(100dvh - var(--topbar-h));
 }
 
 /* ============================================================
@@ -183,4 +186,8 @@ button {
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+@media (min-width: 1024px) {
+  :root { --page-h: 100dvh; }
 }

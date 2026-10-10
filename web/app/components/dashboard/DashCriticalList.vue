@@ -7,13 +7,13 @@ defineProps<{ complaints: ComplaintSummary[] }>()
 </script>
 
 <template>
-  <UiCard padding="none">
+  <UiCard padding="none" class="crit-card">
     <template #header>
       <div>
         <h2 class="crit__title">Needs attention now</h2>
         <p class="crit__sub">Most urgent open problems</p>
       </div>
-      <UiButton variant="ghost" size="sm" icon-right="chevronRight" to="/complaints">Open map</UiButton>
+      <UiButton variant="ghost" size="sm" icon-right="chevronRight" to="/map">Live map</UiButton>
     </template>
 
     <UiEmptyState
@@ -44,6 +44,8 @@ defineProps<{ complaints: ComplaintSummary[] }>()
 </template>
 
 <style scoped>
+.crit-card { height: 100%; }
+
 .crit__title { font-size: 15px; font-weight: 650; color: var(--ink); }
 .crit__sub { font-size: 12.5px; color: var(--ink-3); }
 

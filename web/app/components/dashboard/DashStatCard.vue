@@ -5,18 +5,18 @@ defineProps<{ metric: StatMetric }>()
 </script>
 
 <template>
-  <UiCard padding="md" hoverable>
+  <UiCard padding="md" hoverable class="stat-card">
     <div class="stat">
       <div class="stat__head">
         <p class="stat__label">{{ metric.label }}</p>
         <span class="stat__icon" :class="`stat__icon--${metric.iconTone}`">
-          <UiIcon :name="metric.icon" :size="17" />
+          <UiIcon :name="metric.icon" :size="16" />
         </span>
       </div>
 
       <p class="stat__value tnum">{{ metric.value }}</p>
 
-      <p class="stat__delta" :class="`stat__delta--${metric.hintTone ?? 'neutral'}`">
+      <p class="stat__hint" :class="`stat__hint--${metric.hintTone ?? 'neutral'}`" :title="metric.hint">
         {{ metric.hint }}
       </p>
     </div>
@@ -24,33 +24,46 @@ defineProps<{ metric: StatMetric }>()
 </template>
 
 <style scoped>
+/* Every stat card is the same height: the grid stretches them, the hint sits at the bottom. */
+.stat-card {
+  height: 100%;
+}
+
+.stat-card :deep(.ui-card__body) {
+  flex: 1;
+  display: flex;
+}
+
 .stat {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .stat__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 14px;
 }
 
 .stat__label {
-  padding-top: 7px;
-  font-size: 12.5px;
-  font-weight: 500;
-  line-height: 1.3;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 550;
   color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border-radius: var(--r-sm);
 }
@@ -66,37 +79,39 @@ defineProps<{ metric: StatMetric }>()
 }
 
 .stat__value {
-  font-size: 28px;
+  margin: 14px 0 12px;
+  font-size: 30px;
   font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -0.015em;
+  line-height: 1;
+  letter-spacing: -0.02em;
   color: var(--ink);
 }
 
-.stat__delta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.stat__hint {
+  max-width: 100%;
   align-self: flex-start;
-  margin-top: 10px;
+  margin-top: auto;
   padding: 3px 9px;
   border-radius: var(--r-pill);
   font-size: 12px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.stat__delta--good {
+.stat__hint--good {
   background: var(--success-bg);
   color: var(--success);
 }
 
-.stat__delta--bad {
+.stat__hint--bad {
   background: var(--danger-bg);
   color: var(--danger);
 }
 
-.stat__delta--neutral {
+.stat__hint--neutral {
   background: var(--surface-inset);
   color: var(--ink-2);
 }

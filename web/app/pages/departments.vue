@@ -9,17 +9,24 @@ definePageMeta({ layout: 'dashboard' })
 const { scopeId } = useDepartmentScope()
 
 /* City-wide data regardless of scope: this page compares teams. */
-const { data, pending, error, refresh } = useAsyncData('departments-page', async () => {
+const { data, status, error, refresh } = useAsyncData('departments-page', async () => {
   const [overview, open] = await Promise.all([
     ComplaintService.overview(),
     ComplaintService.list({ status: [...OPEN_STATUSES] }),
   ])
   return { overview, open }
 })
+const pending = computed(() => status.value === 'pending' && !data.value)
+
+const STATUS = {
+  healthy: { tone: 'success', label: 'On track' },
+  watch: { tone: 'warning', label: 'Watch' },
+  critical: { tone: 'danger', label: 'Needs help' },
+} as const
 
 const cards = computed(() => {
   if (!data.value) return []
-  return DEPARTMENTS.map((d) => {
+  const rows = DEPARTMENTS.map((d) => {
     const row = data.value!.overview.departments.find((x) => x.id === d.id)
     const mine = data.value!.open.filter((c) => c.department === d.id)
     const byCategory = new Map<string, number>()
@@ -31,22 +38,30 @@ const cards = computed(() => {
       open: row?.open ?? 0,
       p1: row?.p1 ?? 0,
       resolved: row?.resolved ?? 0,
-      status: row?.status ?? 'healthy',
+      status: (row?.status ?? 'healthy') as keyof typeof STATUS,
       top: [...byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3),
       oldest,
     }
-  }).sort((a, b) => b.p1 - a.p1 || b.open - a.open)
+  })
+  return rows.sort((a, b) => b.p1 - a.p1 || b.open - a.open || a.label.localeCompare(b.label))
 })
 
-const STATUS = {
-  healthy: { tone: 'success', label: 'On track' },
-  watch: { tone: 'warning', label: 'Watch' },
-  critical: { tone: 'danger', label: 'Needs help' },
-} as const
+/* Workload bars are relative to the busiest team. */
+const maxOpen = computed(() => Math.max(1, ...cards.value.map((c) => c.open)))
 
-function viewOnMap(id: string) {
+const summary = computed(() => {
+  const c = cards.value
+  return [
+    { id: 'open', label: 'Open problems', value: c.reduce((s, d) => s + d.open, 0), icon: 'inbox' as const },
+    { id: 'urgent', label: 'Urgent (P1)', value: c.reduce((s, d) => s + d.p1, 0), icon: 'alert' as const, hot: true },
+    { id: 'fixed', label: 'Fixed · 30 days', value: c.reduce((s, d) => s + d.resolved, 0), icon: 'checkCircle' as const },
+    { id: 'help', label: 'Teams needing help', value: c.filter((d) => d.status !== 'healthy').length, icon: 'users' as const },
+  ]
+})
+
+function openIn(id: string, path: '/map' | '/complaints') {
   scopeId.value = id
-  navigateTo('/complaints')
+  navigateTo(path)
 }
 
 useHead({ title: 'Teams · urban.bee' })
@@ -54,77 +69,161 @@ useHead({ title: 'Teams · urban.bee' })
 
 <template>
   <div class="deps">
-    <header class="deps__head u-rise">
-      <h1 class="deps__title">Teams</h1>
-      <p class="deps__sub">Every report is routed to one of these teams automatically</p>
-    </header>
+    <DashPageHeader title="Teams" subtitle="Every report is routed to one of these teams automatically. Busiest first.">
+      <template #actions>
+        <UiButton variant="outline" size="sm" icon-left="refresh" :loading="status === 'pending' && !!data" @click="refresh()">
+          Refresh
+        </UiButton>
+      </template>
+    </DashPageHeader>
 
-    <UiEmptyState v-if="error" tone="danger" icon="alert" title="We couldn't load the teams" description="Check your connection and try again.">
+    <UiEmptyState v-if="error && !data" tone="danger" icon="alert" title="We couldn't load the teams" description="Check your connection and try again.">
       <UiButton variant="outline" size="sm" icon-left="refresh" @click="refresh()">Try again</UiButton>
     </UiEmptyState>
 
-    <div v-else class="deps__grid">
-      <template v-if="pending">
-        <UiCard v-for="i in 8" :key="i"><UiSkeleton height="160px" /></UiCard>
-      </template>
-      <UiCard
-        v-for="(d, i) in cards"
-        v-else
-        :id="d.id"
-        :key="d.id"
-        hoverable
-        class="dept u-rise"
-        :style="{ '--stagger': `${i * 35}ms` }"
-      >
-        <div class="dept__head">
-          <span class="dept__icon"><UiIcon :name="d.iconName" :size="18" /></span>
-          <div class="dept__text">
-            <h2 class="dept__name">{{ d.label }}</h2>
-            <p class="dept__desc">{{ d.description }}</p>
+    <template v-else>
+      <!-- City-wide totals across all teams -->
+      <section class="deps__summary" aria-label="All teams">
+        <template v-if="pending">
+          <div v-for="i in 4" :key="i" class="deps__sum"><UiSkeleton width="60%" height="12px" /><UiSkeleton width="35%" height="24px" /></div>
+        </template>
+        <div
+          v-for="(s, i) in summary"
+          v-else
+          :key="s.id"
+          class="deps__sum u-rise"
+          :style="{ '--stagger': `${i * 35}ms` }"
+        >
+          <p class="deps__sum-label"><UiIcon :name="s.icon" :size="14" /> {{ s.label }}</p>
+          <p class="deps__sum-value tnum" :class="{ 'is-hot': s.hot && s.value > 0 }">{{ s.value }}</p>
+        </div>
+      </section>
+
+      <div class="deps__grid">
+        <template v-if="pending">
+          <UiCard v-for="i in 8" :key="i">
+            <div class="deps__skel">
+              <div class="deps__skel-head"><UiSkeleton width="38px" height="38px" radius="var(--r-sm)" /><UiSkeleton width="55%" height="15px" /></div>
+              <UiSkeleton height="54px" radius="var(--r-sm)" />
+              <UiSkeleton width="70%" height="12px" />
+              <UiSkeleton height="32px" radius="var(--r-sm)" />
+            </div>
+          </UiCard>
+        </template>
+
+        <UiCard
+          v-for="(d, i) in cards"
+          v-else
+          :id="d.id"
+          :key="d.id"
+          hoverable
+          class="dept u-rise"
+          :class="`dept--${d.status}`"
+          :style="{ '--stagger': `${120 + i * 35}ms` }"
+        >
+          <div class="dept__head">
+            <span class="dept__icon"><UiIcon :name="d.iconName" :size="18" /></span>
+            <div class="dept__text">
+              <h2 class="dept__name" :title="d.label">{{ d.label }}</h2>
+              <p class="dept__desc" :title="d.description">{{ d.description }}</p>
+            </div>
           </div>
-          <UiBadge :tone="STATUS[d.status].tone" dot>{{ STATUS[d.status].label }}</UiBadge>
-        </div>
 
-        <dl class="dept__stats">
-          <div><dt>Open</dt><dd class="tnum">{{ d.open }}</dd></div>
-          <div><dt>Urgent</dt><dd class="tnum" :class="{ 'is-hot': d.p1 }">{{ d.p1 }}</dd></div>
-          <div><dt>Fixed</dt><dd class="tnum">{{ d.resolved }}</dd></div>
-        </dl>
+          <div class="dept__state">
+            <UiBadge :tone="STATUS[d.status].tone" dot>{{ STATUS[d.status].label }}</UiBadge>
+            <span v-if="d.oldest" class="dept__oldest"><UiIcon name="clock" :size="12" /> Oldest {{ formatTimeAgo(d.oldest.createdAt) }}</span>
+          </div>
 
-        <div class="dept__foot">
-          <p v-if="d.top.length" class="dept__top">
-            <span v-for="[label, n] in d.top" :key="label" class="dept__cat">{{ label }} <b class="tnum">{{ n }}</b></span>
-          </p>
-          <p v-else class="dept__top dept__top--empty">No open problems</p>
-          <p v-if="d.oldest" class="dept__oldest">
-            <UiIcon name="clock" :size="12" /> Oldest open: {{ formatTimeAgo(d.oldest.createdAt) }}
-          </p>
-          <UiButton variant="outline" size="sm" icon-left="map" block @click="viewOnMap(d.id)">View on map</UiButton>
-        </div>
-      </UiCard>
-    </div>
+          <dl class="dept__stats">
+            <div><dt>Open</dt><dd class="tnum">{{ d.open }}</dd></div>
+            <div><dt>Urgent</dt><dd class="tnum" :class="{ 'is-hot': d.p1 }">{{ d.p1 }}</dd></div>
+            <div><dt>Fixed</dt><dd class="tnum">{{ d.resolved }}</dd></div>
+          </dl>
+
+          <div class="dept__load" :aria-label="`Workload: ${d.open} open`">
+            <span :style="{ width: `${(d.open / maxOpen) * 100}%` }" />
+          </div>
+
+          <div class="dept__cats">
+            <template v-if="d.top.length">
+              <span v-for="[label, n] in d.top" :key="label" class="dept__cat" :title="label">
+                <span class="dept__cat-label">{{ label }}</span> <b class="tnum">{{ n }}</b>
+              </span>
+            </template>
+            <span v-else class="dept__none"><UiIcon name="checkCircle" :size="13" /> No open problems</span>
+          </div>
+
+          <div class="dept__actions">
+            <UiButton variant="outline" size="sm" icon-left="mapPin" @click="openIn(d.id, '/map')">Map</UiButton>
+            <UiButton variant="ghost" size="sm" icon-right="chevronRight" @click="openIn(d.id, '/complaints')">Problems</UiButton>
+          </div>
+        </UiCard>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.deps { display: flex; flex-direction: column; gap: 24px; }
-.deps__title { font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
-.deps__sub { margin-top: 4px; font-size: 13.5px; color: var(--ink-3); }
+.deps { display: flex; flex-direction: column; gap: 20px; }
+
+.deps__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-1);
+  overflow: hidden;
+}
+
+.deps__sum {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
+  min-width: 0;
+}
+
+.deps__sum + .deps__sum { border-left: 1px solid var(--line); }
+
+.deps__sum-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deps__sum-value { font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; }
+.deps__sum-value.is-hot { color: var(--danger); }
 
 .deps__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
+
+.deps__skel { display: flex; flex-direction: column; gap: 14px; }
+.deps__skel-head { display: flex; align-items: center; gap: 12px; }
+
+.dept { height: 100%; }
 
 .dept :deep(.ui-card__body) {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  height: 100%;
+  gap: 14px;
 }
 
-.dept__head { display: flex; align-items: flex-start; gap: 12px; }
+/* A thin top accent tells team health at a glance. */
+.dept--watch { box-shadow: inset 0 3px 0 var(--warning), var(--sh-1); }
+.dept--critical { box-shadow: inset 0 3px 0 var(--danger), var(--sh-1); }
+
+.dept__head { display: flex; align-items: center; gap: 12px; min-width: 0; }
 
 .dept__icon {
   display: inline-flex;
@@ -139,16 +238,41 @@ useHead({ title: 'Teams · urban.bee' })
 }
 
 .dept__text { flex: 1; min-width: 0; }
+
+.dept__name,
+.dept__desc {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dept__name { font-size: 15px; font-weight: 700; }
-.dept__desc { margin-top: 2px; font-size: 12.5px; color: var(--ink-3); line-height: 1.4; }
+.dept__desc { margin-top: 1px; font-size: 12.5px; color: var(--ink-3); }
+
+.dept__state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.dept__oldest {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
 
 .dept__stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin: 0;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-inset);
 }
 
 .dept__stats dt {
@@ -159,28 +283,70 @@ useHead({ title: 'Teams · urban.bee' })
   color: var(--ink-3);
 }
 
-.dept__stats dd { margin: 2px 0 0; font-size: 22px; font-weight: 700; }
+.dept__stats dd { margin: 3px 0 0; font-size: 22px; font-weight: 700; line-height: 1; }
 .dept__stats dd.is-hot { color: var(--danger); }
 
-.dept__foot { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+.dept__load {
+  height: 4px;
+  margin-top: -4px;
+  border-radius: var(--r-pill);
+  background: var(--surface-inset);
+  overflow: hidden;
+}
 
-.dept__top { display: flex; flex-wrap: wrap; gap: 6px; }
-.dept__top--empty { font-size: 12.5px; color: var(--ink-3); }
+.dept__load span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+  transition: width 500ms var(--ease-out);
+}
+
+.dept--critical .dept__load span { background: var(--danger); }
+.dept--watch .dept__load span { background: var(--warning); }
+
+.dept__cats {
+  display: flex;
+  gap: 6px;
+  min-height: 24px;
+  overflow: hidden;
+}
 
 .dept__cat {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   padding: 3px 9px;
   border-radius: var(--r-pill);
   background: var(--surface-inset);
   font-size: 12px;
   color: var(--ink-2);
+  white-space: nowrap;
 }
-.dept__cat b { margin-left: 3px; color: var(--ink); }
 
-.dept__oldest {
-  display: flex;
+.dept__cat-label { overflow: hidden; text-overflow: ellipsis; }
+.dept__cat b { margin-left: 4px; color: var(--ink); }
+
+.dept__none {
+  display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
-  color: var(--ink-3);
+  font-size: 12.5px;
+  color: var(--success);
+}
+
+.dept__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .deps__summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .deps__sum:nth-child(3) { border-left: none; }
+  .deps__sum:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }
 </style>

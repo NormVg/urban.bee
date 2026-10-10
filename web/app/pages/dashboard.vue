@@ -4,12 +4,17 @@ import type { StatMetric } from '~/types/dashboard'
 definePageMeta({ layout: 'dashboard' })
 
 const { scopeId, activeDepartment } = useDepartmentScope()
-const { overview, pending, error, refresh } = useOverview()
+const { overview, pending, refreshing, error, refresh } = useOverview()
 
 const pageTitle = computed(() => activeDepartment.value?.label ?? 'City overview')
 const updatedAt = ref(new Date())
 watch(overview, () => (updatedAt.value = new Date()))
 const updatedLabel = useTimeAgo(() => updatedAt.value.toISOString())
+
+/* Computed once on the server and reused on the client so both render the same text. */
+const today = useState('overview-today', () =>
+  new Intl.DateTimeFormat('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
+)
 
 const stats = computed<StatMetric[]>(() => {
   const s = overview.value?.stats
@@ -37,7 +42,7 @@ const stats = computed<StatMetric[]>(() => {
       id: 'fixed',
       label: 'Fixed · 30 days',
       value: String(s.resolved30d),
-      hint: `${s.reportsMerged} repeat reports merged`,
+      hint: s.reportsMerged === 1 ? '1 repeat report merged' : `${s.reportsMerged} repeat reports merged`,
       hintTone: 'good',
       icon: 'checkCircle',
       iconTone: 'blue',
@@ -46,7 +51,7 @@ const stats = computed<StatMetric[]>(() => {
       id: 'speed',
       label: 'Time to sort a report',
       value: triage ? `${triage.toFixed(1)} s` : '–',
-      hint: 'AI reads, sorts and routes it',
+      hint: 'Routed by AI',
       icon: 'sparkles',
       iconTone: 'orange',
     },
@@ -59,19 +64,19 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
 <template>
   <!-- Keyed by scope: switching departments replays the entrance staggers -->
   <div :key="scopeId" class="dash-page">
-    <header class="page-head u-rise">
-      <div class="page-head__text">
-        <h1 class="page-head__title">{{ pageTitle }}</h1>
-        <p class="page-head__sub">
-          <span class="page-head__live"><span class="page-head__pulse" />Live</span>
-          Updated {{ updatedLabel }}
-        </p>
-      </div>
-      <div class="page-head__actions">
-        <UiButton variant="outline" size="sm" icon-left="refresh" @click="refresh()">Refresh</UiButton>
-        <UiButton variant="primary" size="sm" icon-left="map" to="/complaints">Open map</UiButton>
-      </div>
-    </header>
+    <DashPageHeader :title="pageTitle">
+      <template #meta>
+        <span>{{ today }}</span>
+        <span class="dash-page__live"><span class="dash-page__pulse" />Live</span>
+        <span>Updated {{ updatedLabel }}</span>
+      </template>
+      <template #actions>
+        <UiButton variant="outline" size="sm" icon-left="refresh" :loading="refreshing" @click="refresh()">
+          Refresh
+        </UiButton>
+        <UiButton variant="primary" size="sm" icon-left="mapPin" to="/map">Live map</UiButton>
+      </template>
+    </DashPageHeader>
 
     <UiEmptyState
       v-if="error && !overview"
@@ -86,7 +91,13 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
     <template v-else>
       <section class="stat-grid" aria-label="Key numbers">
         <template v-if="pending">
-          <UiCard v-for="i in 4" :key="i"><UiSkeleton height="86px" /></UiCard>
+          <UiCard v-for="i in 4" :key="i" class="stat-skel">
+            <div class="stat-skel__body">
+              <UiSkeleton width="55%" height="12px" />
+              <UiSkeleton width="40%" height="28px" />
+              <UiSkeleton width="70%" height="20px" radius="var(--r-pill)" />
+            </div>
+          </UiCard>
         </template>
         <DashStatCard
           v-for="(metric, i) in stats"
@@ -98,20 +109,35 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
         />
       </section>
 
-      <section v-if="overview" class="panel-grid" aria-label="Trends">
-        <DashActivityChart class="u-rise" :series="overview.series" :style="{ '--stagger': '160ms' }" />
-        <DashPriorityCard class="u-rise" :mix="overview.priority" :style="{ '--stagger': '200ms' }" />
+      <section class="panel-grid" aria-label="Trends">
+        <template v-if="pending">
+          <DashPanelSkeleton variant="chart" height="240px" />
+          <DashPanelSkeleton :rows="4" height="240px" />
+        </template>
+        <template v-else-if="overview">
+          <DashActivityChart class="u-rise" :series="overview.series" :style="{ '--stagger': '160ms' }" />
+          <DashPriorityCard class="u-rise" :mix="overview.priority" :style="{ '--stagger': '200ms' }" />
+        </template>
       </section>
 
-      <section v-if="overview" class="panel-grid panel-grid--even" aria-label="Teams and urgent problems">
-        <DashDepartmentTable
-          class="u-rise"
-          :departments="overview.departments"
-          :active-id="scopeId === 'all' ? undefined : scopeId"
-          :style="{ '--stagger': '240ms' }"
-          @select="(id) => navigateTo(`/departments#${id}`)"
-        />
-        <DashCriticalList class="u-rise" :complaints="overview.latestCritical" :style="{ '--stagger': '260ms' }" />
+      <section class="panel-grid panel-grid--wide" aria-label="Teams and urgent problems">
+        <template v-if="pending">
+          <DashPanelSkeleton :rows="6" height="320px" />
+          <DashPanelSkeleton :rows="5" height="320px" />
+        </template>
+        <template v-else-if="overview">
+          <DashDepartmentTable
+            class="u-rise"
+            :departments="overview.departments"
+            :active-id="scopeId === 'all' ? undefined : scopeId"
+            :style="{ '--stagger': '240ms' }"
+            @select="(id) => navigateTo(`/departments#${id}`)"
+          />
+          <div class="side-stack">
+            <DashCriticalList class="side-stack__grow u-rise" :complaints="overview.latestCritical" :style="{ '--stagger': '270ms' }" />
+            <DashSeverityCard class="u-rise" :mix="overview.severity" :style="{ '--stagger': '300ms' }" />
+          </div>
+        </template>
       </section>
     </template>
   </div>
@@ -121,34 +147,10 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
 .dash-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-.page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.page-head__title {
-  font-size: 25px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--ink);
-}
-
-.page-head__sub {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
-  font-size: 13.5px;
-  color: var(--ink-3);
-}
-
-.page-head__live {
+.dash-page__live {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -160,7 +162,7 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
   font-weight: 700;
 }
 
-.page-head__pulse {
+.dash-page__pulse {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -173,42 +175,54 @@ useHead({ title: computed(() => `${pageTitle.value} · urban.bee`) })
   50% { opacity: 0.35; }
 }
 
-.page-head__actions {
-  display: flex;
-  gap: 10px;
-}
-
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
+.stat-skel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 112px;
+}
+
+/* Cards in a row always share one height (stretch), so rows read as clean bands. */
 .panel-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
   align-items: stretch;
 }
 
-.panel-grid--even {
-  grid-template-columns: 3fr 2fr;
-  align-items: start;
+.panel-grid--wide {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
-@media (max-width: 1100px) {
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+.side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
-@media (max-width: 1280px) {
-  .panel-grid--even { grid-template-columns: 1fr; }
+/* The urgent list takes the leftover height so the column ends level with the table. */
+.side-stack__grow {
+  flex: 1;
+  height: auto;
 }
 
-@media (max-width: 980px) {
-  .panel-grid { grid-template-columns: 1fr; }
+@media (max-width: 1180px) {
+  .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .panel-grid--wide { grid-template-columns: minmax(0, 1fr); }
 }
 
-@media (max-width: 620px) {
-  .stat-grid { grid-template-columns: 1fr; }
+@media (max-width: 900px) {
+  .panel-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .stat-grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

@@ -59,12 +59,12 @@ const fullBleed = computed(() => Boolean(route.meta.fullBleed))
 .dash__content {
   flex: 1;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 28px clamp(20px, 4vw, 40px) 64px;
+  padding: 28px clamp(20px, 3.4vw, 40px) 56px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 }
 
 .dash__content--bleed {

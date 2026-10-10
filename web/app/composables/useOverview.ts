@@ -20,7 +20,10 @@ export function useOverview() {
 
   return {
     overview: data,
+    /** First load only: show skeletons. */
     pending: computed(() => status.value === 'pending' && !data.value),
+    /** Background refresh with data already on screen. */
+    refreshing: computed(() => status.value === 'pending' && !!data.value),
     error,
     refresh,
   }

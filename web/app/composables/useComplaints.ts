@@ -50,9 +50,19 @@ export function useComplaints() {
     { watch: [filters], default: () => [] },
   )
 
+  /** Update one row in place (optimistic UI) without refetching the whole list. */
+  function patchLocal(id: string, patch: Partial<ComplaintSummary>) {
+    if (!data.value) return
+    data.value = data.value.map((c) => (c.id === id ? { ...c, ...patch } : c))
+  }
+
   return {
     complaints: computed(() => data.value ?? []),
+    patchLocal,
+    /** True on every fetch, including filter changes and background refreshes. */
     pending: computed(() => status.value === 'pending'),
+    /** First load only (nothing on screen yet): show skeletons. */
+    initialLoading: computed(() => status.value === 'pending' && !(data.value?.length)),
     error,
     refresh,
     statusId,

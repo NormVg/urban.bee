@@ -13,15 +13,23 @@ export function useComplaint(id: Ref<string | null>) {
   const updating = ref<ComplaintStatus | null>(null)
   const { notify } = useToast()
 
+  /**
+   * Optimistic: the new status shows at once and the save runs in the
+   * background (the database round trip can take a second or two). If the
+   * save fails, the previous status comes back and the admin is told.
+   */
   async function setStatus(next: ComplaintStatus, successMessage: string) {
-    if (!id.value) return false
+    if (!id.value || !data.value) return false
+    const previous = data.value
     updating.value = next
+    data.value = { ...previous, status: next, updatedAt: new Date().toISOString() }
+    notify({ tone: 'success', message: successMessage })
     try {
       data.value = await ComplaintService.setStatus(id.value, next)
-      notify({ tone: 'success', message: successMessage })
       return true
     } catch {
-      notify({ tone: 'danger', message: "That didn't save. Please try again." })
+      data.value = previous
+      notify({ tone: 'danger', message: "That didn't save, so the status was put back. Please try again." })
       return false
     } finally {
       updating.value = null

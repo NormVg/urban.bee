@@ -15,10 +15,12 @@ const columns = computed(() =>
     index: i,
     height: Math.round((day.value / max.value) * 100),
     isCurrent: i === props.series.length - 1,
+    isZero: day.value === 0,
   })),
 )
 
 const GRID_LINES = [25, 50, 75, 100] as const
+const total = computed(() => props.series.reduce((sum, d) => sum + d.value, 0))
 </script>
 
 <template>
@@ -28,7 +30,10 @@ const GRID_LINES = [25, 50, 75, 100] as const
         <h2 class="chart-card__title">{{ title }}</h2>
         <p class="chart-card__sub">{{ subtitle }}</p>
       </div>
-      <UiBadge tone="info" icon="activity">live</UiBadge>
+      <div class="chart-card__aside">
+        <span class="chart-card__total tnum">{{ total }} <span>in {{ series.length }} days</span></span>
+        <UiBadge tone="info" icon="activity">live</UiBadge>
+      </div>
     </template>
 
     <div class="chart" role="img" :aria-label="`Bar chart of new reports per day over the last ${series.length} days`">
@@ -53,7 +58,7 @@ const GRID_LINES = [25, 50, 75, 100] as const
             :style="{ '--h': `${col.height}%`, '--stagger': `${col.index * 18}ms` }"
           >
             <span class="chart__value tnum">{{ col.value }}</span>
-            <span class="chart__bar" :class="{ 'is-current': col.isCurrent }" />
+            <span class="chart__bar" :class="{ 'is-current': col.isCurrent, 'is-zero': col.isZero }" />
           </div>
         </div>
       </div>
@@ -68,6 +73,34 @@ const GRID_LINES = [25, 50, 75, 100] as const
 </template>
 
 <style scoped>
+.chart-card {
+  height: 100%;
+}
+
+.chart-card :deep(.ui-card__body) {
+  flex: 1;
+  display: flex;
+}
+
+.chart-card__aside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.chart-card__total {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.chart-card__total span {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
 .chart-card__title {
   font-size: 15px;
   font-weight: 650;
@@ -81,6 +114,10 @@ const GRID_LINES = [25, 50, 75, 100] as const
 
 .chart {
   position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   padding-top: 18px;
 }
 
@@ -106,7 +143,8 @@ const GRID_LINES = [25, 50, 75, 100] as const
   display: flex;
   align-items: stretch;
   gap: 8px;
-  height: 208px;
+  flex: 1;
+  min-height: 200px;
   border-bottom: 1px solid var(--line-strong);
 }
 
@@ -133,6 +171,11 @@ const GRID_LINES = [25, 50, 75, 100] as const
   animation: u-grow 300ms var(--ease-out) both;
   animation-delay: var(--stagger, 0ms);
   transition: background-color var(--t-fast) var(--ease-in-out);
+}
+
+.chart__bar.is-zero {
+  height: 3px;
+  background: var(--line-strong);
 }
 
 .chart__col:hover .chart__bar {

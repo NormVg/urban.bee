@@ -33,7 +33,7 @@ const totals = computed(() => ({
 </script>
 
 <template>
-  <UiCard padding="none">
+  <UiCard padding="none" class="dtable-card">
     <template #header>
       <div>
         <h2 class="dtable__title">Teams</h2>
@@ -50,8 +50,7 @@ const totals = computed(() => ({
             <th scope="col" class="is-num">Open</th>
             <th scope="col" class="is-num">Urgent</th>
             <th scope="col" class="is-num">Fixed</th>
-            <th scope="col" class="is-num">Avg priority</th>
-            <th scope="col">Status</th>
+            <th scope="col" class="is-status">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -75,8 +74,7 @@ const totals = computed(() => ({
             <td class="is-num tnum">{{ dept.open }}</td>
             <td class="is-num tnum" :class="{ 'is-hot': dept.p1 > 0 }">{{ dept.p1 }}</td>
             <td class="is-num tnum">{{ dept.resolved }}</td>
-            <td class="is-num tnum">{{ dept.open ? dept.avgPriority : '–' }}</td>
-            <td>
+            <td class="is-status">
               <UiBadge :tone="STATUS[dept.status].tone" dot>{{ STATUS[dept.status].label }}</UiBadge>
             </td>
           </tr>
@@ -97,6 +95,9 @@ const totals = computed(() => ({
 </template>
 
 <style scoped>
+.dtable-card { height: 100%; }
+.dtable-card :deep(.ui-card__body) { flex: 1; }
+
 .dtable__title {
   font-size: 15px;
   font-weight: 650;
@@ -115,7 +116,7 @@ const totals = computed(() => ({
 
 .dtable {
   width: 100%;
-  min-width: 580px;
+  min-width: 520px;
   border-collapse: collapse;
 }
 
@@ -226,4 +227,8 @@ const totals = computed(() => ({
   font-weight: 500;
   color: var(--blue);
 }
+</style>
+
+<style scoped>
+.dtable .is-status { text-align: right; width: 1%; }
 </style>

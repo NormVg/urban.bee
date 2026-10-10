@@ -20,7 +20,8 @@ export const SIDEBAR_NAV: NavSection[] = [
     label: 'Operations',
     items: [
       { label: 'Overview', icon: 'dashboard', to: '/dashboard' },
-      { label: 'Complaints', icon: 'map', to: '/complaints' },
+      { label: 'Live map', icon: 'mapPin', to: '/map' },
+      { label: 'Complaints', icon: 'list', to: '/complaints' },
       { label: 'Teams', icon: 'building', to: '/departments' },
     ],
   },
@@ -31,5 +32,6 @@ export const PAGE_TITLES: { prefix: string; title: string }[] = [
   { prefix: '/complaints/', title: 'Complaint' },
   { prefix: '/complaints', title: 'Complaints' },
   { prefix: '/departments', title: 'Teams' },
+  { prefix: '/map', title: 'Live map' },
   { prefix: '/dashboard', title: 'Overview' },
 ]

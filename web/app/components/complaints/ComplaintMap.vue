@@ -324,13 +324,41 @@ function startPulse(m: MapLibreMap) {
   pulseFrame = requestAnimationFrame(tick)
 }
 
-onMounted(async () => {
+/** Give up waiting for the tile style after this long and offer a retry. */
+const LOAD_TIMEOUT_MS = 15_000
+let resizeObserver: ResizeObserver | null = null
+let loadTimer: ReturnType<typeof setTimeout> | undefined
+
+function destroyMap() {
+  cancelAnimationFrame(pulseFrame)
+  clearTimeout(loadTimer)
+  popup?.remove()
+  popup = null
+  map?.remove()
+  map = null
+  ready.value = false
+  lastFitKey = ''
+}
+
+/*
+ * Blank/black map causes handled here:
+ *  - the container changes size after start-up (layout settling, drawer,
+ *    sidebar) and MapLibre keeps the old canvas size: a ResizeObserver
+ *    calls map.resize() on every size change;
+ *  - the tile style is slow or fails: a timeout and the error event show a
+ *    retry instead of an endless "Loading map";
+ *  - the browser drops the WebGL context: the map is rebuilt.
+ */
+async function createMap() {
   if (!container.value) return
+  destroyMap()
+  failed.value = false
   try {
     const maplibre = await import('maplibre-gl')
     maplibre.setWorkerUrl(maplibreWorkerUrl)
+    if (!container.value) return
     const first = props.complaints[0]
-    map = new maplibre.Map({
+    const m = new maplibre.Map({
       container: container.value,
       style: STYLE_URL,
       center: first ? [first.longitude, first.latitude] : FALLBACK_CENTER,
@@ -338,31 +366,52 @@ onMounted(async () => {
       attributionControl: { compact: true },
       cooperativeGestures: props.mini,
     })
-    if (!props.mini) map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-right')
+    map = m
+    if (!props.mini) m.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-right')
 
-    map.on('load', () => {
-      if (!map) return
-      addLayers(map)
-      bindInteractions(map, maplibre)
+    loadTimer = setTimeout(() => {
+      if (!ready.value) failed.value = true
+    }, LOAD_TIMEOUT_MS)
+
+    m.on('load', () => {
+      if (map !== m) return
+      clearTimeout(loadTimer)
+      addLayers(m)
+      bindInteractions(m, maplibre)
       ready.value = true
+      failed.value = false
+      m.resize()
       syncHighlight()
       syncData()
-      startPulse(map)
+      startPulse(m)
     })
-    map.on('error', (event) => {
-      if (!ready.value) console.warn('[map]', event.error?.message)
+    m.on('error', (event) => {
+      if (ready.value) return
+      console.warn('[map]', event.error?.message)
+      // Only a failed style is fatal before load; a missing tile is not.
+      if (!m.isStyleLoaded() && /style/i.test(event.error?.message ?? '')) failed.value = true
+    })
+    m.on('webglcontextlost', () => {
+      console.warn('[map] WebGL context lost, rebuilding')
+      setTimeout(() => void createMap(), 300)
     })
   } catch (error) {
     console.error('[map] failed to start', error)
     failed.value = true
   }
+}
+
+onMounted(() => {
+  void createMap()
+  if (container.value && 'ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(() => map?.resize())
+    resizeObserver.observe(container.value)
+  }
 })
 
 onBeforeUnmount(() => {
-  cancelAnimationFrame(pulseFrame)
-  popup?.remove()
-  map?.remove()
-  map = null
+  resizeObserver?.disconnect()
+  destroyMap()
 })
 
 watch(() => [props.complaints, props.points], syncData)
@@ -379,7 +428,7 @@ watch(
   },
 )
 
-defineExpose({ fitAll: () => fitToData(true) })
+defineExpose({ fitAll: () => fitToData(true), resize: () => map?.resize() })
 </script>
 
 <template>
@@ -391,9 +440,10 @@ defineExpose({ fitAll: () => fitToData(true) })
         <span>Loading map…</span>
       </div>
     </Transition>
-    <div v-if="failed" class="cmap__loading">
+    <div v-if="failed" class="cmap__loading cmap__loading--failed" role="alert">
       <UiIcon name="alert" :size="18" />
       <span>The map couldn't load. Check your internet connection.</span>
+      <UiButton variant="outline" size="sm" icon-left="refresh" @click="createMap()">Try again</UiButton>
     </div>
     <slot />
   </div>
@@ -407,7 +457,7 @@ defineExpose({ fitAll: () => fitToData(true) })
   min-height: 240px;
   overflow: hidden;
   background: var(--surface-inset);
-  contain: strict;
+  contain: layout paint;
 }
 
 .cmap--mini {
@@ -431,6 +481,13 @@ defineExpose({ fitAll: () => fitToData(true) })
   font-size: 13px;
   color: var(--ink-3);
   background: var(--surface-inset);
+}
+
+.cmap__loading--failed {
+  flex-direction: column;
+  z-index: 3;
+  text-align: center;
+  padding: 24px;
 }
 
 .cmap-fade-leave-active { transition: opacity 300ms var(--ease-out); }

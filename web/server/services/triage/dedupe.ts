@@ -16,7 +16,8 @@ import type { Decision, TraceRecorder, TriageInput, Transcript } from './types'
 /**
  * Duplicate prevention and issue extension (PLAN.md §5).
  *
- *  1. Same photo (sha256)                              → same issue
+ *  1. Same photo (sha256) within 300 m                 → same issue
+ *     (a reused photo from far away is not the same problem)
  *  2. Candidates: open, same department + category,
  *     within 25 m (60 m for spreading categories)      → never decided on distance alone
  *  3. Clef relation per candidate: same / extension / different
@@ -24,6 +25,8 @@ import type { Decision, TraceRecorder, TriageInput, Transcript } from './types'
  */
 
 const SAME_RADIUS_M = 25
+/** A matching photo only proves the same problem if it was sent from roughly the same place. */
+const SAME_PHOTO_RADIUS_M = 300
 const EXTENSION_RADIUS_M = 60
 const RULES_RADIUS_M = 10
 const SAME_THRESHOLD = 0.75
@@ -73,18 +76,15 @@ export function findMatch(
     async () => {
       const point: LatLng = { latitude: input.latitude, longitude: input.longitude }
 
-      // Layer 1: the exact same photo is unambiguous.
-      const samePhoto = await complaintRepository.findOpenByPhotoHashes(input.photos.map((p) => p.hash))
+      // Layer 1: the same photo sent from nearby is unambiguous.
+      const samePhoto = (await complaintRepository.findOpenByPhotoHashes(input.photos.map((p) => p.hash)))
+        .map((c) => ({ complaint: c, distanceM: Math.round(haversineM(point, { latitude: c.centerLat, longitude: c.centerLng })) }))
+        .filter((m) => m.distanceM <= SAME_PHOTO_RADIUS_M)
+        .sort((a, b) => a.distanceM - b.distanceM)
       if (samePhoto[0]) {
-        const match = samePhoto[0]
+        const { complaint: match, distanceM } = samePhoto[0]
         return {
-          value: {
-            outcome: 'same',
-            complaint: match,
-            reason: 'same_photo',
-            score: 1,
-            distanceM: Math.round(haversineM(point, { latitude: match.centerLat, longitude: match.centerLng })),
-          },
+          value: { outcome: 'same', complaint: match, reason: 'same_photo', score: 1, distanceM },
           provider: 'sha256',
           model: 'photo hash',
           note: `Same photo as ${match.reference}`,
