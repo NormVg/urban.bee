@@ -25,4 +25,3 @@ logs
 
 # Vercel
 .vercel
-.env*
