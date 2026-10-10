@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type RefreshControlProps, type StyleProp, type ViewStyle } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 
 import { Brand, Spacing } from '@/constants/theme';
 
@@ -21,8 +21,18 @@ export function Screen({
   refreshControl?: React.ReactElement<RefreshControlProps>;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
+  /*
+   * Pad from the app-wide insets rather than a native SafeAreaView: inside a
+   * full-screen modal the native view measured 0 at first, so the top of the
+   * screen slid under the status bar.
+   */
+  const insets = useSafeAreaInsets();
+  const pad = {
+    paddingTop: edges.includes('top') ? insets.top : 0,
+    paddingBottom: edges.includes('bottom') ? insets.bottom : 0,
+  };
   return (
-    <SafeAreaView style={styles.safe} edges={edges}>
+    <View style={[styles.safe, pad]}>
       {scroll ? (
         <ScrollView
           style={styles.flex}
@@ -36,7 +46,7 @@ export function Screen({
         <View style={[styles.flex, styles.content, contentStyle]}>{children}</View>
       )}
       {footer ? <View style={styles.footer}>{footer}</View> : null}
-    </SafeAreaView>
+    </View>
   );
 }
 

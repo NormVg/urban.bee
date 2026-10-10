@@ -39,9 +39,37 @@ A citizen takes a photo and taps **Send**. urban.bee reads the photo (plus an op
 | Plain-language result: which team, how soon | Every merged duplicate and extension in one place |
 | Follow progress: Sent → Seen → Being fixed → Fixed | Start work, mark fixed or not actionable; the citizen's app picks it up on its next refresh |
 
-<p align="center">
-  <img src="docs/screenshots/app-home.png" alt="urban.bee citizen app, home screen" width="300" />
-</p>
+
+---
+
+## App screens
+
+<table>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/01-sign-in.jpg" alt="Sign in" width="180" /><br /><sub>Sign in</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/02-create-account.jpg" alt="Create account" width="180" /><br /><sub>Create account</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/03-form-validation.jpg" alt="Form validation" width="180" /><br /><sub>Form validation</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/04-home-empty.jpg" alt="Home" width="180" /><br /><sub>Home</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/05-report.jpg" alt="Report a problem" width="180" /><br /><sub>Report a problem</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/06-report-photo.jpg" alt="Photo added" width="180" /><br /><sub>Photo added</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/07-map-picker.jpg" alt="Choose the place on a map" width="180" /><br /><sub>Choose the place on a map</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/08-report-note.jpg" alt="Add a note" width="180" /><br /><sub>Add a note</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/09-sending.jpg" alt="Sending" width="180" /><br /><sub>Sending</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/10-thank-you.jpg" alt="Routed to the right team" width="180" /><br /><sub>Routed to the right team</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/11-already-reported.jpg" alt="Duplicate detected" width="180" /><br /><sub>Duplicate detected</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/12-send-error.jpg" alt="Send failed, nothing lost" width="180" /><br /><sub>Send failed, nothing lost</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><img src="docs/screenshots/13-status-seen.jpg" alt="Status: seen" width="180" /><br /><sub>Status: seen</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/14-status-being-fixed.jpg" alt="Status: being fixed" width="180" /><br /><sub>Status: being fixed</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/15-status-fixed.jpg" alt="Status: fixed" width="180" /><br /><sub>Status: fixed</sub></td>
+    <td align="center" width="25%"><img src="docs/screenshots/16-sign-out.jpg" alt="Sign out" width="180" /><br /><sub>Sign out</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -152,7 +180,7 @@ urban.bee/
 │   ├── server/          API routes, services, repositories, triage pipeline
 │   ├── shared/          taxonomy, priority scoring, API types
 │   └── scripts/         seed and reset scripts
-└── docs/                logo and screenshots
+└── docs/                logo and app screenshots
 ```
 
 ---

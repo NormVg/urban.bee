@@ -3,7 +3,8 @@ useHead({ title: 'urban.bee' })
 </script>
 
 <template>
-  <main class="landing">
+  <main>
+  <section class="landing">
     <!-- Cyclone (swirl) dithering shader background; sand token color pre-mount -->
     <div class="landing__shader" aria-hidden="true">
       <ClientOnly>
@@ -49,6 +50,9 @@ useHead({ title: 'urban.bee' })
     >
       <BrandWordmark size="lg" :show-mark="false" />
     </NuxtLink>
+  </section>
+
+  <LandingScreensMarquee />
   </main>
 </template>
 
