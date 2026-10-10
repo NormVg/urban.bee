@@ -19,6 +19,7 @@
   "dependencies": {
     "@better-auth/expo": "^1.7.7",
     "@paper-design/shaders": "^0.0.81",
+    "aws4fetch": "^1.0.20",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "lucide-vue-next": "^1.0.0",

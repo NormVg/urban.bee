@@ -5,11 +5,17 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css', 'maplibre-gl/dist/maplibre-gl.css'],
 
-  // Photos and voice notes live on disk in dev (web/.data/uploads).
-  // Swap the driver for S3 / Neon object storage without touching callers.
+  // Photos and voice notes live on disk in dev (web/.data/uploads). In
+  // production server/plugins/media-storage.ts mounts S3 (or disk when
+  // self-hosting), so callers never change.
   nitro: {
-    storage: {
+    devStorage: {
       uploads: { driver: 'fs', base: './.data/uploads' },
+    },
+    // Vercel: submitting a report runs the AI pipeline (often 10-20 s), so
+    // give functions room beyond the default timeout.
+    vercel: {
+      functions: { maxDuration: 60 },
     },
   },
 

@@ -25,3 +25,6 @@ skills-lock.json
 web/README.md
 app/README.md
 app/LICENSE
+
+# Vercel
+.vercel/

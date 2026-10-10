@@ -22,8 +22,10 @@ export const auth = betterAuth({
   trustedOrigins: [
     // Expo app deep-link scheme (app.json "scheme")
     'app://',
-    // Development: Expo Go / dev-client origins on the LAN
-    ...(process.env.NODE_ENV === 'development'
+    // Expo Go / dev-client origins. Always on in development; in production
+    // on by default so the demo app in Expo Go can sign in to the hosted
+    // server. Set ALLOW_EXPO_GO=false once a real app build ships.
+    ...(process.env.NODE_ENV === 'development' || process.env.ALLOW_EXPO_GO !== 'false'
       ? ['exp://', 'exp://**', 'exp+app://**']
       : []),
   ],
