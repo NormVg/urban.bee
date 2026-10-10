@@ -1,0 +1,27 @@
+# Dependencies and builds
+node_modules/
+dist/
+
+# Secrets (each project ships a .env.example instead)
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Local tooling and notes (not part of the product)
+.agents/
+.claude/
+.context/
+AGENTS.md
+CLAUDE.md
+project.md
+skills-lock.json
+
+# Per-project boilerplate (the root README covers both projects)
+web/README.md
+app/README.md
+app/LICENSE

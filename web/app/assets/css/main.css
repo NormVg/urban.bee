@@ -1,0 +1,186 @@
+/* ============================================================
+   urban.bee — design tokens
+   Palette ratio: sand background 70% · deep blue 20% · orange 10%
+   All components consume these tokens. No hard-coded hex values
+   inside components.
+   ============================================================ */
+
+:root {
+  /* --- surfaces --- */
+  --bg: #e3d9c9;                 /* app background (70%) */
+  --surface: #f7f2e8;            /* cards */
+  --surface-2: #fdfaf3;          /* raised: inputs, popover */
+  --surface-inset: #efe7d8;       /* wells, table headers */
+
+  /* --- deep blue (20%) --- */
+  --blue: #1c4f78;
+  --blue-deep: #16405f;          /* hover / pressed */
+  --blue-ink: #123350;           /* sidebar bottom gradient */
+  --blue-tint: rgba(28, 79, 120, 0.08);
+
+  /* --- orange (10%) --- */
+  --orange: #e6683f;
+  --orange-strong: #d2552c;      /* hover / pressed */
+  --orange-tint: rgba(230, 104, 63, 0.12);
+
+  /* --- ink: warm blacks that suit the sand ground --- */
+  --ink: #241c13;
+  --ink-2: #5d5142;              /* secondary text */
+  --ink-3: #8a7b67;              /* faint text, placeholders */
+
+  /* --- lines --- */
+  --line: rgba(36, 28, 19, 0.12);
+  --line-strong: rgba(36, 28, 19, 0.22);
+
+  /* --- text on deep blue --- */
+  --on-blue: #efe9dc;
+  --on-blue-muted: rgba(239, 233, 220, 0.62);
+  --on-blue-line: rgba(239, 233, 220, 0.14);
+
+  /* --- status tones (kept muted to match the warm palette) --- */
+  --success: #4a7b5a;
+  --success-bg: rgba(74, 123, 90, 0.13);
+  --warning: #a06f22;
+  --warning-bg: rgba(160, 111, 34, 0.13);
+  --danger: #b0442f;
+  --danger-bg: rgba(176, 68, 47, 0.12);
+
+  /* --- radius scale (maya-design: micro 4, medium 8, large 12, xl 20) --- */
+  --r-micro: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  /* --- layered, warm-tinted shadows (single light source, up-left) --- */
+  --sh-1:
+    0 1px 2px rgba(58, 42, 24, 0.05),
+    0 2px 6px rgba(58, 42, 24, 0.04);
+  --sh-2:
+    0 1px 2px rgba(58, 42, 24, 0.05),
+    0 6px 14px rgba(58, 42, 24, 0.06),
+    0 14px 30px rgba(58, 42, 24, 0.05);
+  --sh-3:
+    0 2px 4px rgba(58, 42, 24, 0.08),
+    0 18px 44px rgba(58, 42, 24, 0.16);
+
+  /* --- motion --- */
+  --t-fast: 140ms;               /* press / hover (120–180ms) */
+  --t-med: 210ms;                /* small state changes (180–260ms) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);   /* entrances */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* --- typography --- */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  /* --- layout --- */
+  --sidebar-w: 264px;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+h1, h2, h3, h4 {
+  text-wrap: balance;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+::selection {
+  background: var(--orange-tint);
+}
+
+:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+
+/* numerals in data contexts: dashboards, tables, stats */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* entrance: rise + fade, ease-out.
+   Attach with an inline --stagger to sequence siblings
+   (each segment completes at its own rate, keeping motion rich
+   but under 300ms total). */
+@keyframes u-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.u-rise {
+  animation: u-rise 240ms var(--ease-out) both;
+  animation-delay: var(--stagger, 0ms);
+}
+
+@keyframes u-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.u-fade {
+  animation: u-fade 220ms var(--ease-out) both;
+  animation-delay: var(--stagger, 0ms);
+}
+
+/* chart bars grow from their base */
+@keyframes u-grow {
+  from { transform: scaleY(0.02); }
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

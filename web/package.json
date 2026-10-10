@@ -1,0 +1,38 @@
+{
+  "name": "web",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed.ts",
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "db:clear": "tsx scripts/clear-complaints.ts"
+  },
+  "dependencies": {
+    "@better-auth/expo": "^1.7.7",
+    "@paper-design/shaders": "^0.0.81",
+    "better-auth": "^1.7.7",
+    "drizzle-orm": "^0.45.4",
+    "lucide-vue-next": "^1.0.0",
+    "maplibre-gl": "^6.13.0",
+    "nuxt": "^4.6.0",
+    "postgres": "^3.4.9",
+    "vue": "^3.5.43",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@types/geojson": "7946.0.16",
+    "@types/node": "^22.20.5",
+    "dotenv": "^18.0.7",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15"
+  }
+}

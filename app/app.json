@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "urban.bee",
+    "slug": "urban-bee",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "app",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "NSCameraUsageDescription": "urban.bee uses the camera to photograph the problem you report.",
+        "NSPhotoLibraryUsageDescription": "urban.bee lets you choose a photo of the problem from your phone.",
+        "NSLocationWhenInUseUsageDescription": "urban.bee adds your location so the city team can find the problem.",
+        "NSMicrophoneUsageDescription": "urban.bee records a voice note when you hold the button to tell us more."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#00000000",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#e3d9c9",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 140
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "urban.bee uses the camera to photograph the problem you report.",
+          "photosPermission": "urban.bee lets you choose a photo of the problem from your phone."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "urban.bee adds your location so the city team can find the problem."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "urban.bee records a voice note when you hold the button to tell us more."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "urban.bee uses the camera to photograph the problem you report.",
+          "recordAudioAndroid": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "backgroundColor": "#e3d9c9"
+  }
+}
