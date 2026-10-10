@@ -4,8 +4,8 @@ import { APP_SCREENS_BOTTOM, APP_SCREENS_TOP } from '~/constants/landing'
 /*
  * Two rows of citizen-app screens drifting in opposite directions.
  * Each row renders its list twice and translates by -50% so the loop is
- * seamless. Pure CSS (transform only, GPU friendly); pauses on hover and
- * stops entirely under reduced motion.
+ * seamless. Pure CSS (transform only, GPU friendly); stops entirely under
+ * reduced motion.
  */
 const rows = [
   { id: 'top', screens: APP_SCREENS_TOP, reverse: false },
@@ -118,10 +118,6 @@ const rows = [
 .screens__row--reverse .screens__track {
   animation-duration: 82s;
   animation-direction: reverse;
-}
-
-.screens__rows:hover .screens__track {
-  animation-play-state: paused;
 }
 
 .screens__item {
