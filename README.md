@@ -37,7 +37,7 @@ A citizen takes a photo and taps **Send**. urban.bee reads the photo (plus an op
 | Hold-to-speak voice notes in any language | Complaint drawer: photos, voice note, transcript, AI review |
 | Choose the place on a map instead of current location | "How this was sorted": every AI step with timing |
 | Plain-language result: which team, how soon | Every merged duplicate and extension in one place |
-| Follow progress: Sent → Seen → Being fixed → Fixed | Start work, mark fixed or reject; the citizen sees it live |
+| Follow progress: Sent → Seen → Being fixed → Fixed | Start work, mark fixed or not actionable; the citizen's app picks it up on its next refresh |
 
 <p align="center">
   <img src="docs/screenshots/app-home.png" alt="urban.bee citizen app, home screen" width="300" />
@@ -52,10 +52,10 @@ Every submission runs through a six-step pipeline on **Cloudflare Workers AI**. 
 ```mermaid
 flowchart LR
     A[Photo + location<br/>+ voice / note] --> B[1 Transcribe<br/>Whisper]
-    B --> C[2 Decide<br/>Clef vision model]
+    B --> C[2 Decide<br/>Clef decision model]
     C --> D[3 Normalise<br/>taxonomy + severity]
     D --> E[4 Dedupe<br/>hash, geo, Clef]
-    E --> F[5 Describe<br/>Llama 4 Scout]
+    E --> F[5 Describe<br/>Llama 4 Scout<br/>new complaints only]
     F --> G[6 Score<br/>P1 to P4]
     G --> H[(Routed complaint<br/>on the live map)]
 ```
@@ -66,10 +66,10 @@ flowchart LR
 | Decide | `@cf/cloudflare/clef` | Department, category, severity, hazards, validity, each with probabilities |
 | Normalise | Code | Taxonomy-valid labels, confidence, "needs review" flag |
 | Dedupe | SHA-256 → haversine → Clef | New, merged, extension, or already reported |
-| Describe | `@cf/meta/llama-4-scout-17b-16e-instruct` | Title, one-line summary, suggested action, tags |
+| Describe | `@cf/meta/llama-4-scout-17b-16e-instruct` | Title, one-line summary, suggested action, tags (skipped when the report joins an existing complaint) |
 | Score | Code | Priority score 0 to 100 and band P1 to P4 |
 
-A **photo alone is enough**: every question is phrased so it can be answered from the image. If the AI is unavailable, a keyword rules classifier (English plus common romanised Hindi and Kannada words) keeps the flow working and the complaint is flagged for review.
+A **photo alone is enough**: every question is phrased so it can be answered from the image. If the AI is unavailable, a keyword rules classifier keeps the flow working. It reads the citizen's note and transcript (English keywords plus a few romanised words such as *gaddha*, *kachra* and *khatra*), and a report it can't match is filed as "Other" and flagged for an admin to review.
 
 ### Priority
 
@@ -209,7 +209,7 @@ On a real phone, set `EXPO_PUBLIC_API_URL` to your computer's Wi-Fi address, for
 3. **Result in plain words**: "Your report is with the Roads team. This looks urgent."
 4. **Dashboard map**: the new pin appears. Open it to see the photos, voice note, transcript, AI review and every pipeline step.
 5. **Duplicates**: a second account reports the same pothole and it merges, raising the priority. The first account reporting it again is told it is already on file.
-6. **Close the loop**: the admin starts work and marks it fixed, and the citizen's progress dots follow.
+6. **Close the loop**: the admin starts work and marks it fixed, and the citizen's progress dots follow on the app's next refresh (every 30 seconds, or pull down).
 
 ---
 
